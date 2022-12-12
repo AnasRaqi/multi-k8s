@@ -1,6 +1,10 @@
 sudo: required
 services: 
   - docker
+env: 
+  global:
+    - SHA=$(git rev-parse HEAD)
+    - CLOUDSDK_CORE_DISABLE_PROMPTS=1 # to disable GCP prompts. 
 before_install:
   - openssl aes-256-cbc -K $encrypted_9f3b5599b056_key -iv $encrypted_9f3b5599b056_iv -in service-account.json.enc -out service-account.json -d
   # install SDK 
@@ -10,3 +14,18 @@ before_install:
   - gcloud components update kubectl 
   # Authentication with GCP
   - gcloud auth activate-service-account --key-file service-account.json
+  - gcloud config set project multi-k8s-371314
+  - gcloud config set compute/zone us-central1-c
+  - gcloud container clusters get-credentials multi-cluster
+  # Testing
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - docker build -t araqi/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run -e CI=true USERNAME/react-test npm test
+
+deploy: 
+  provider: script 
+  script: bash ./deploy.sh
+  on: 
+    branch: master 
